@@ -1,0 +1,1 @@
+MERN stack TypeScript with Prisma ORM using MongoDB 

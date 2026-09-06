@@ -1,0 +1,151 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  username    String   @unique
+  password    String
+  fullName    String
+  email       String?
+  role        String   @default("ADMIN") // ADMIN, MANAGER, SALES_AGENT, INVENTORY_OFFICER
+  isActive    Boolean  @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CompanyInfo {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  name            String   @default("Apex Luxury Motors")
+  tagline         String   @default("Excellence in Automotive Luxury & Performance")
+  logoText        String   @default("APEX MOTORS")
+  email           String   @default("contact@apexluxury.com")
+  phone           String   @default("+1 (800) 555-APEX")
+  secondaryPhone  String   @default("+1 (800) 555-0199")
+  address         String   @default("742 Prestige Boulevard, Suite 100")
+  city            String   @default("Beverly Hills")
+  state           String   @default("CA")
+  postalCode      String   @default("90210")
+  country         String   @default("United States")
+  openingHours    String   @default("Mon - Sat: 9:00 AM - 8:00 PM | Sun: 10:00 AM - 5:00 PM")
+  aboutUs         String   @default("For over two decades, Apex Luxury Motors has set the standard for prestige automotive retail, curating an exceptional inventory of the world's most sought-after luxury, exotic, and high-performance vehicles.")
+  visionText      String   @default("Delivering unmatched automotive craftsmanship and white-glove client advisory to collectors and luxury enthusiasts worldwide.")
+  warrantyPolicy  String   @default("All certified vehicles undergo a rigorous 180-point technical inspection and include our 24-month comprehensive concierge warranty.")
+  socialInstagram String   @default("https://instagram.com/apexluxurymotors")
+  socialFacebook  String   @default("https://facebook.com/apexluxurymotors")
+  socialLinkedIn  String   @default("https://linkedin.com/company/apexluxurymotors")
+  socialTwitter   String   @default("https://twitter.com/apexluxurymotors")
+  socialWhatsApp  String   @default("+18005550199")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Vehicle {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  make          String
+  model         String
+  year          Int
+  variant       String
+  vin           String   @unique
+  engineNo      String
+  bodyType      String   // Sedan, SUV, Coupe, Convertible, Electric, Supercar
+  transmission  String   // Automatic, Dual-Clutch, Manual, Single-Speed
+  fuelType      String   // Petrol, Diesel, Hybrid, Electric
+  exteriorColor String
+  interiorColor String
+  mileage       Int
+  costPrice     Float
+  sellingPrice  Float
+  status        String   @default("AVAILABLE") // AVAILABLE, RESERVED, SOLD, IN_SERVICE
+  condition     String   @default("BRAND_NEW") // BRAND_NEW, CERTIFIED_PRE_OWNED, USED
+  features      String   // JSON string or comma-separated list of premium specs
+  description   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Sale {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  invoiceNo      String   @unique
+  customerId     String?
+  customerName   String
+  customerPhone  String
+  customerEmail  String
+  vehicleId      String?
+  vehicleName    String
+  vehicleVin     String
+  basePrice      Float
+  taxAmount      Float    @default(0)
+  discountAmount Float    @default(0)
+  finalPrice     Float
+  paymentMethod  String   // Bank Wire, Certified Cheque, Cash, Financing
+  paymentStatus  String   @default("PAID") // PAID, PARTIAL, PENDING
+  deliveryStatus String   @default("DELIVERED") // PENDING, READY, DELIVERED
+  saleDate       DateTime @default(now())
+  soldBy         String   @default("Admin")
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Customer {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  name              String
+  phone             String
+  email             String
+  nationalId        String?
+  address           String?
+  preferredCategory String?
+  budgetMin         Float?
+  budgetMax         Float?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Inquiry {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerName     String
+  customerPhone    String
+  customerEmail    String
+  interestedVehicle String
+  budget           Float?
+  status           String   @default("NEW") // NEW, CONTACTED, TEST_DRIVE_SCHEDULED, NEGOTIATING, CONVERTED, LOST
+  followUpDate     DateTime?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model TestDrive {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerName  String
+  customerPhone String
+  customerEmail String
+  vehicleName   String
+  scheduledDate DateTime
+  licenseNumber String
+  status        String   @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
+  feedback      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Supplier {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  contactPerson String
+  phone         String
+  email         String
+  address       String
+  totalProcured Float    @default(0)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
