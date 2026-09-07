@@ -201,6 +201,17 @@ export const initialUsers: UserData[] = [
     updatedAt: '2026-01-10T00:00:00.000Z',
   },
   {
+    id: 'user_admin_02',
+    username: 'samiullah',
+    password: '$2b$10$R6ciJrh.Bo0dJoK4nOBqaeOKlz8IDtqu.geNkdaDLESQ717W71F6W', // admin123
+    fullName: 'Samiullah Nawaz (Super Admin)',
+    email: 'samiullah@apexluxurymotors.com',
+    role: 'ADMIN',
+    isActive: true,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
     id: 'user_mgr_01',
     username: 'elena',
     password: '$2b$10$R6ciJrh.Bo0dJoK4nOBqaeOKlz8IDtqu.geNkdaDLESQ717W71F6W', // admin123

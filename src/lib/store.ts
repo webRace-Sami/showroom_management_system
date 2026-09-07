@@ -19,6 +19,7 @@ import {
   SupplierData,
 } from './initialData';
 import { hashPassword, comparePassword } from './auth';
+import prisma from './prisma';
 
 // File-based persistence storage path for standalone/offline execution
 const DATA_DIR = path.join(process.cwd(), '.data');
@@ -91,17 +92,80 @@ class ShowroomStore {
 
   // --- USERS & AUTH ---
   async getUsers(): Promise<UserData[]> {
+    try {
+      if (prisma) {
+        const dbUsers = await prisma.user.findMany({ orderBy: { createdAt: 'desc' } });
+        if (dbUsers && dbUsers.length > 0) {
+          return dbUsers.map(u => ({
+            id: u.id,
+            username: u.username,
+            password: '[PROTECTED]',
+            fullName: u.fullName,
+            email: u.email || '',
+            role: u.role as any,
+            isActive: u.isActive,
+            lastLoginAt: u.lastLoginAt?.toISOString(),
+            createdAt: u.createdAt.toISOString(),
+            updatedAt: u.updatedAt.toISOString(),
+          }));
+        }
+      }
+    } catch (e) {}
+
     this.loadFromDisk();
     return this.data.users.map(u => ({ ...u, password: '[PROTECTED]' }));
   }
 
   async findUserByUsername(username: string): Promise<UserData | null> {
+    const trimmed = username.trim();
+    try {
+      if (prisma) {
+        const dbUser = await prisma.user.findUnique({
+          where: { username: trimmed.toLowerCase() },
+        });
+        if (dbUser) {
+          return {
+            id: dbUser.id,
+            username: dbUser.username,
+            password: dbUser.password,
+            fullName: dbUser.fullName,
+            email: dbUser.email || '',
+            role: dbUser.role as any,
+            isActive: dbUser.isActive,
+            lastLoginAt: dbUser.lastLoginAt?.toISOString(),
+            createdAt: dbUser.createdAt.toISOString(),
+            updatedAt: dbUser.updatedAt.toISOString(),
+          };
+        }
+      }
+    } catch (e) {}
+
     this.loadFromDisk();
-    const user = this.data.users.find(u => u.username.toLowerCase() === username.toLowerCase());
+    const user = this.data.users.find(u => u.username.toLowerCase() === trimmed.toLowerCase());
     return user ? { ...user } : null;
   }
 
   async findUserById(id: string): Promise<UserData | null> {
+    try {
+      if (prisma && id.length === 24) {
+        const dbUser = await prisma.user.findUnique({ where: { id } });
+        if (dbUser) {
+          return {
+            id: dbUser.id,
+            username: dbUser.username,
+            password: dbUser.password,
+            fullName: dbUser.fullName,
+            email: dbUser.email || '',
+            role: dbUser.role as any,
+            isActive: dbUser.isActive,
+            lastLoginAt: dbUser.lastLoginAt?.toISOString(),
+            createdAt: dbUser.createdAt.toISOString(),
+            updatedAt: dbUser.updatedAt.toISOString(),
+          };
+        }
+      }
+    } catch (e) {}
+
     this.loadFromDisk();
     const user = this.data.users.find(u => u.id === id);
     return user ? { ...user } : null;
@@ -115,15 +179,33 @@ class ShowroomStore {
     role: UserData['role'];
     isActive?: boolean;
   }): Promise<UserData> {
-    this.loadFromDisk();
     const existing = await this.findUserByUsername(userData.username);
     if (existing) {
       throw new Error(`Username "${userData.username}" is already in use.`);
     }
 
     const hashedPassword = await hashPassword(userData.password);
+    let createdId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
+    try {
+      if (prisma) {
+        const created = await prisma.user.create({
+          data: {
+            username: userData.username.trim().toLowerCase(),
+            password: hashedPassword,
+            fullName: userData.fullName.trim(),
+            email: userData.email.trim(),
+            role: userData.role || 'SALES_AGENT',
+            isActive: userData.isActive !== undefined ? userData.isActive : true,
+          },
+        });
+        createdId = created.id;
+      }
+    } catch (e) {}
+
+    this.loadFromDisk();
     const newUser: UserData = {
-      id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      id: createdId,
       username: userData.username.trim(),
       password: hashedPassword,
       fullName: userData.fullName.trim(),
@@ -140,16 +222,45 @@ class ShowroomStore {
   }
 
   async updateUser(id: string, updates: Partial<UserData>): Promise<UserData> {
-    this.loadFromDisk();
-    const index = this.data.users.findIndex(u => u.id === id);
-    if (index === -1) throw new Error('User not found');
-
-    const currentUser = this.data.users[index];
-
-    let hashedPassword = currentUser.password;
+    let hashedPassword: string | undefined;
     if (updates.password && updates.password.trim().length > 0) {
       hashedPassword = await hashPassword(updates.password);
     }
+
+    try {
+      if (prisma && id.length === 24) {
+        await prisma.user.update({
+          where: { id },
+          data: {
+            fullName: updates.fullName,
+            email: updates.email,
+            role: updates.role,
+            isActive: updates.isActive,
+            password: hashedPassword,
+            lastLoginAt: updates.lastLoginAt ? new Date(updates.lastLoginAt) : undefined,
+          },
+        });
+      }
+    } catch (e) {}
+
+    this.loadFromDisk();
+    const index = this.data.users.findIndex(u => u.id === id);
+    if (index === -1) {
+      return {
+        id,
+        username: updates.username || 'user',
+        password: '[PROTECTED]',
+        fullName: updates.fullName || '',
+        email: updates.email || '',
+        role: (updates.role as any) || 'ADMIN',
+        isActive: updates.isActive ?? true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    const currentUser = this.data.users[index];
+    const finalPassword = hashedPassword || currentUser.password;
 
     const updated: UserData = {
       ...currentUser,
@@ -157,7 +268,8 @@ class ShowroomStore {
       email: updates.email !== undefined ? updates.email : currentUser.email,
       role: updates.role !== undefined ? updates.role : currentUser.role,
       isActive: updates.isActive !== undefined ? updates.isActive : currentUser.isActive,
-      password: hashedPassword,
+      password: finalPassword,
+      lastLoginAt: updates.lastLoginAt !== undefined ? updates.lastLoginAt : currentUser.lastLoginAt,
       updatedAt: new Date().toISOString(),
     };
 
@@ -175,6 +287,12 @@ class ShowroomStore {
   }
 
   async deleteUser(id: string): Promise<boolean> {
+    try {
+      if (prisma && id.length === 24) {
+        await prisma.user.delete({ where: { id } });
+      }
+    } catch (e) {}
+
     this.loadFromDisk();
     const user = this.data.users.find(u => u.id === id);
     if (!user) throw new Error('User not found');
@@ -203,16 +321,39 @@ class ShowroomStore {
       updatedUsername = newUsername.trim();
     }
 
-    const index = this.data.users.findIndex(u => u.id === admin.id);
-    this.data.users[index] = {
-      ...admin,
-      username: updatedUsername,
-      password: newHash,
-      updatedAt: new Date().toISOString(),
-    };
+    try {
+      if (prisma) {
+        await prisma.user.updateMany({
+          where: { username: currentUsername.trim().toLowerCase() },
+          data: {
+            username: updatedUsername.toLowerCase(),
+            password: newHash,
+          },
+        });
+      }
+    } catch (e) {}
 
-    this.saveToDisk();
-    return { success: true, user: { ...this.data.users[index], password: '[PROTECTED]' } };
+    const index = this.data.users.findIndex(u => u.id === admin.id);
+    if (index !== -1) {
+      this.data.users[index] = {
+        ...admin,
+        username: updatedUsername,
+        password: newHash,
+        updatedAt: new Date().toISOString(),
+      };
+      this.saveToDisk();
+      return { success: true, user: { ...this.data.users[index], password: '[PROTECTED]' } };
+    }
+
+    return {
+      success: true,
+      user: {
+        ...admin,
+        username: updatedUsername,
+        password: '[PROTECTED]',
+        updatedAt: new Date().toISOString(),
+      },
+    };
   }
 
   // --- COMPANY INFO ---
